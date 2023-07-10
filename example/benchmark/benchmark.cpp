@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     fastllm::SetThreads(config.threads);
     auto model = fastllm::CreateLLMModelFromFile(config.path);
     fastllm::GenerationConfig generationConfig;
-    generationConfig.output_token_limit = config.limit;
+    // generationConfig.output_token_limit = config.limit;
 
     fastllm::PrintInstructionInfo();
     std::vector <std::string> inputs;

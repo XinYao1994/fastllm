@@ -156,7 +156,8 @@ for response in model.stream_response("你好"):
 ```
 mkdir build-py
 cd build-py
-cmake .. -DPY_API=ON -DUSE_CUDA=ON （只使用CPU则使用 cmake .. -DPY_API=ON 即可）
+<!-- cmake .. -DPY_API=ON -DUSE_CUDA=ON （只使用CPU则使用 cmake .. -DPY_API=ON 即可） -->
+cmake .. -DPYBIND11_PYTHON_VERSION=3.7 -DPY_API=ON -DUSE_CUDA=ON
 make -j
 cd -
 python cli.py  -m chatglm -p chatglm-6b-int8.bin 或  

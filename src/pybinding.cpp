@@ -153,10 +153,11 @@ PYBIND11_MODULE(pyfastllm, m) {
            const fastllm::Data &inputIds, 
            const fastllm::Data &attentionMask,
            const fastllm::Data &positionIds, 
-           const fastllm::Data &penaltyFactor,
+          //  const fastllm::Data &penaltyFactor,
            std::vector<std::pair<fastllm::Data, fastllm::Data>>& pastKeyValues) {
 
-          int retV = model.Forward(inputIds, attentionMask, positionIds, penaltyFactor, pastKeyValues);
+          // int retV = model.Forward(inputIds, attentionMask, positionIds, penaltyFactor, pastKeyValues);
+          int retV = model.Forward(inputIds, attentionMask, positionIds, pastKeyValues);
           return std::make_tuple(retV, pastKeyValues);
     })
     .def("launch_response", &fastllm::ChatGLMModel::LaunchResponseTokens)
@@ -184,9 +185,10 @@ PYBIND11_MODULE(pyfastllm, m) {
            const fastllm::Data &inputIds, 
            const fastllm::Data &attentionMask,
            const fastllm::Data &positionIds, 
-           const fastllm::Data &penaltyFactor,
+          //  const fastllm::Data &penaltyFactor,
            std::vector<std::pair<fastllm::Data, fastllm::Data>> &pastKeyValues) {
-          int retV = model.Forward(inputIds, attentionMask, positionIds, penaltyFactor, pastKeyValues);
+          // int retV = model.Forward(inputIds, attentionMask, positionIds, penaltyFactor, pastKeyValues);
+          int retV = model.Forward(inputIds, attentionMask, positionIds, pastKeyValues);
           return std::make_tuple(retV, pastKeyValues);
     })
     .def("launch_response", &fastllm::MOSSModel::LaunchResponseTokens)
@@ -215,9 +217,10 @@ PYBIND11_MODULE(pyfastllm, m) {
            const fastllm::Data &inputIds, 
            const fastllm::Data &attentionMask,
            const fastllm::Data &positionIds, 
-           const fastllm::Data &penaltyFactor,
+          //  const fastllm::Data &penaltyFactor,
            std::vector<std::pair<fastllm::Data, fastllm::Data>> &pastKeyValues) {
-          int retV = model.Forward(inputIds, attentionMask, positionIds, penaltyFactor, pastKeyValues);
+          // int retV = model.Forward(inputIds, attentionMask, positionIds, penaltyFactor, pastKeyValues);
+          int retV = model.Forward(inputIds, attentionMask, positionIds, pastKeyValues);
           return std::make_tuple(retV, pastKeyValues);
     })
     .def("launch_response", &fastllm::LlamaModel::LaunchResponseTokens)
