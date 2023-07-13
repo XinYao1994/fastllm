@@ -99,6 +99,23 @@ __global__ void FastllmAttentionMaskKernel(float* a, float *b, float maskValue, 
     }
 }
 
+template <int THREAD_PER_BLOCK>
+__global__ void FastllmAlibiMaskKernel(float* a, float *b, float maskValue, int n, int m, int spn, int spm, int spatial) {
+    int on = blockIdx.x / m;
+    int om = blockIdx.x % m;
+    int o = on * m + om;
+    int idx = threadIdx.x;
+    float now = b[om];
+    for (int i = idx; i < spatial; i += THREAD_PER_BLOCK) {
+        int idi = i / spm, idj = i % spm;
+        if (idj <= spm - spn + idi) {
+            a[o * spatial + i] += now * idj;
+        } else {
+            a[o * spatial + i] = maskValue;
+        }
+    }
+}
+
 __global__ void FastllmPermuteKernel(float *dst, float *ori, int *temp, int axisLen, int len) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     if (i < len) {
@@ -596,6 +613,38 @@ __global__ void FastllmGemvInt4Kernel2(float *A, uint8_t *B, float *C,
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvInt4NoZeroKernel2(float *A, uint8_t *B, float *C,
+                                       float *bias, float *scales, float *mins,
+                                       int m, int k) {
+    __shared__ float sdata[THREAD_PER_BLOCK];
+    unsigned int tid = threadIdx.x;
+
+    // 1. 计算
+    int st = blockIdx.x * PART;
+    int end = st + PART;
+    for (int p = st; p < end; p++) {
+        sdata[tid] = 0;
+        float minv = mins[p] / scales[p];
+        for (int i = tid; i < m / 2; i += THREAD_PER_BLOCK) {
+            uint8_t now = B[p * m / 2 + i];
+            sdata[tid] += (A[i * 2] * (minv + (now >> 4)) + A[i * 2 + 1] * (minv + (now & 15)));
+        }
+        __syncthreads();
+        for (unsigned int s = 1; s < THREAD_PER_BLOCK; s *= 2) {
+            if ((tid & (2 * s - 1)) == 0) {
+                sdata[tid] += sdata[tid + s];
+            }
+            __syncthreads();
+        }
+
+        if (tid == 0) {
+            C[p] = sdata[0] * scales[p] + bias[p];
+        }
+        __syncthreads();
+    }
+}
+
 void *FastllmCudaPrepareInput(const fastllm::Data &input) {
     void *ret;
     if (input.dataDevice == fastllm::DataDevice::CUDA) {
@@ -732,6 +781,56 @@ bool FastllmCudaMatMulFloatInt4(const fastllm::Data &input, fastllm::Data &weigh
                                                       cudaBiasData,
                                                       cudaScales,
                                                       cudaZeropoints,
+                                                      m, k);
+    }
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
+bool FastllmCudaMatMulFloatInt4NoZero(const fastllm::Data &input, fastllm::Data &weight, const fastllm::Data &bias, fastllm::Data &output, int n, int m, int k) {
+    if (weight.cudaData == nullptr || weight.extraCudaData.size() == 0) {
+        weight.ToDevice(fastllm::DataDevice::CUDA);
+
+        float *cudaScales;
+        cudaMalloc(&cudaScales, k * sizeof(float));
+        cudaMemcpy(cudaScales, weight.scales.data(), k * sizeof(float), cudaMemcpyHostToDevice);
+        weight.extraCudaData.push_back((void*)cudaScales);
+
+        float *cudaMins;
+        cudaMalloc(&cudaMins, k * sizeof(float));
+        float *mins = new float[k];
+        for (int i = 0; i < k; i++) {
+            mins[i] = weight.perChannelsConfigs[i].min;
+        }
+        cudaMemcpy(cudaMins, mins, k * sizeof(float), cudaMemcpyHostToDevice);
+        delete[] mins;
+        weight.extraCudaData.push_back((void*)cudaMins);
+
+        float *cudaBiasData;
+        cudaMalloc(&cudaBiasData, k * sizeof(float));
+        if (bias.dims.size() > 0) {
+            cudaMemcpy(cudaBiasData, (uint8_t*)bias.cudaData, k * sizeof(float), cudaMemcpyDeviceToDevice);
+        } else {
+            cudaMemset(cudaBiasData, 0, k * sizeof(float));
+        }
+        weight.extraCudaData.push_back((void*)cudaBiasData);
+    }
+
+    float *cudaScales = (float*)weight.extraCudaData[0];
+    float *cudaMins = (float*)weight.extraCudaData[1];
+    float *cudaBiasData = (float*)weight.extraCudaData[2];
+
+    float *cudaInput = (float*)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float*)FastllmCudaPrepareOutput(output);
+
+    for (int i = 0; i < n; i++) {
+        FastllmGemvInt4NoZeroKernel2<256, 1> <<< k, 256 >>>(cudaInput + i * m,
+                                                      (uint8_t *) weight.cudaData,
+                                                      cudaOutput + i * k,
+                                                      cudaBiasData,
+                                                      cudaScales,
+                                                      cudaMins,
                                                       m, k);
     }
     FastllmCudaFinishInput(input, cudaInput);
@@ -972,6 +1071,20 @@ bool FastllmCudaAttentionMask(fastllm::Data &input, const fastllm::Data &mask, f
 
     FastllmAttentionMaskKernel <256> <<< n * m, 256>>>(cudaData, maskData, maskValue,
                                                        n, m, spatial);
+    FastllmCudaFinishInput(mask, maskData);
+    FastllmCudaFinishOutput(input, cudaData);
+    return true;
+}
+
+bool FastllmCudaAlibiMask(fastllm::Data &input, const fastllm::Data &mask, float maskValue) {
+    int n = input.dims[0], m = input.dims[1];
+    int spn = input.dims[2], spm = input.dims[3];
+    int spatial = input.Count(2);
+    float *cudaData = (float *) FastllmCudaPrepareInput(input);
+    float *maskData = (float *) FastllmCudaPrepareInput(mask);
+
+    FastllmAlibiMaskKernel <256> <<< n * m, 256>>>(cudaData, maskData, maskValue,
+                                                   n, m, spn, spm, spatial);
     FastllmCudaFinishInput(mask, maskData);
     FastllmCudaFinishOutput(input, cudaData);
     return true;

@@ -21,11 +21,23 @@ PYBIND11_MAKE_OPAQUE(fastllm::Data);
 PYBIND11_MODULE(pyfastllm, m) {
   m.doc() = "fastllm python bindings";
   
+  py::class_<fastllm::GenerationConfig>(m, "GenerationConfig")
+	  .def(py::init<>())
+	  .def_readwrite("max_length", &fastllm::GenerationConfig::output_token_limit) 
+	  .def_readwrite("last_n", &fastllm::GenerationConfig::last_n) 
+	  .def_readwrite("repeat_penalty", &fastllm::GenerationConfig::repeat_penalty) 
+	  .def_readwrite("top_k", &fastllm::GenerationConfig::top_k) 
+	  .def_readwrite("top_p", &fastllm::GenerationConfig::top_p) 
+	  .def_readwrite("temperature", &fastllm::GenerationConfig::temperature)
+	  .def("is_simple_greedy", &fastllm::GenerationConfig::IsSimpleGreedy); 
+
   // high level
   m.def("set_threads", &fastllm::SetThreads)
     .def("get_threads", &fastllm::GetThreads)
     .def("set_low_memory", &fastllm::SetLowMemMode)
     .def("get_low_memory", &fastllm::GetLowMemMode)
+    .def("set_kv_cache", &fastllm::SetKVCacheInCPU)
+    .def("get_kv_cache", &fastllm::GetKVCacheInCPU)
     .def("create_llm", &fastllm::CreateLLMModelFromFile);
   
   // low level
@@ -142,9 +154,10 @@ PYBIND11_MODULE(pyfastllm, m) {
     .def("response", &fastllm::ChatGLMModel::Response)
     .def("batch_response", [](fastllm::ChatGLMModel &model, 
                               const std::vector <std::string> &inputs,
-                               RuntimeResultBatch retCb)->std::vector<std::string> {
+                               RuntimeResultBatch retCb,
+							   fastllm::GenerationConfig config)->std::vector<std::string> {
       std::vector <std::string> outputs;
-      model.ResponseBatch(inputs, outputs, retCb);
+      model.ResponseBatch(inputs, outputs, retCb, config);
       return outputs;
     })
     .def("warmup", &fastllm::ChatGLMModel::WarmUp)
@@ -175,9 +188,10 @@ PYBIND11_MODULE(pyfastllm, m) {
     .def("response", &fastllm::MOSSModel::Response)
     .def("batch_response", [](fastllm::MOSSModel &model, 
                               const std::vector <std::string> &inputs,
-                               RuntimeResultBatch retCb)->std::vector<std::string> {
+                               RuntimeResultBatch retCb,
+							   fastllm::GenerationConfig config)->std::vector<std::string> {
       std::vector <std::string> outputs;
-      model.ResponseBatch(inputs, outputs, retCb);
+      model.ResponseBatch(inputs, outputs, retCb, config);
       return outputs;
     })
     .def("forward",
@@ -206,9 +220,10 @@ PYBIND11_MODULE(pyfastllm, m) {
     .def("response", &fastllm::LlamaModel::Response)
     .def("batch_response", [](fastllm::LlamaModel &model, 
                               const std::vector <std::string> &inputs,
-                               RuntimeResultBatch retCb)->std::vector<std::string> {
+                               RuntimeResultBatch retCb,
+							   fastllm::GenerationConfig config)->std::vector<std::string> {
       std::vector <std::string> outputs;
-      model.ResponseBatch(inputs, outputs, retCb);
+      model.ResponseBatch(inputs, outputs, retCb, config);
       return outputs;
     })
     .def("warmup", &fastllm::LlamaModel::WarmUp)

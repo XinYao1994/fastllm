@@ -25,12 +25,14 @@ bool FastllmCudaSoftmax(const fastllm::Data &input, fastllm::Data &output, int a
 bool FastllmCudaAddTo(fastllm::Data &input0, const fastllm::Data &input1, float alpha);
 bool FastllmCudaMulTo(fastllm::Data &input0, const fastllm::Data &input1, float alpha);
 bool FastllmCudaAttentionMask(fastllm::Data &input, const fastllm::Data &mask, float maskValue);
+bool FastllmCudaAlibiMask(fastllm::Data &input, const fastllm::Data &mask, float maskValue);
 bool FastllmCudaRMSNorm(const fastllm::Data &input, fastllm::Data &weight, fastllm::Data &output, float eps);
 bool FastllmCudaLayerNorm(const fastllm::Data &input, fastllm::Data &gamma, fastllm::Data &beta, fastllm::Data &output, int axis);
 bool FastllmCudaTopK(const fastllm::Data &input, fastllm::Data &output, int topk);
 bool FastllmCudaPermute(fastllm::Data &input, const std::vector<int> &axis);
 bool FastllmCudaMatMulFloatInt8(const fastllm::Data &input, fastllm::Data &weight, const fastllm::Data &bias, fastllm::Data &output, int n, int m, int k);
 bool FastllmCudaMatMulFloatInt4(const fastllm::Data &input, fastllm::Data &weight, const fastllm::Data &bias, fastllm::Data &output, int n, int m, int k);
+bool FastllmCudaMatMulFloatInt4NoZero(const fastllm::Data &input, fastllm::Data &weight, const fastllm::Data &bias, fastllm::Data &output, int n, int m, int k);
 bool FastllmCudaMatMulFloat16(const fastllm::Data &input, fastllm::Data &weight, const fastllm::Data &bias, fastllm::Data &output, int n, int m, int k);
 bool FastllmCudaBatchMatMul(const fastllm::Data &input0, const fastllm::Data &input1, fastllm::Data &output,
                                   int input0Spatial, int input1Spatial, int outputSpatial,
