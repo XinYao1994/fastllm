@@ -61,6 +61,7 @@ int main(int argc, char **argv) {
     auto model = fastllm::CreateLLMModelFromFile(config.path);
     fastllm::GenerationConfig generationConfig;
     // generationConfig.output_token_limit = config.limit;
+    generationConfig.output_token_limit = -1;
 
     fastllm::PrintInstructionInfo();
     std::vector <std::string> inputs;
@@ -95,13 +96,15 @@ int main(int argc, char **argv) {
     static int tokens = 0;
     auto st = std::chrono::system_clock::now();
 
-    model->ResponseBatch(inputs, outputs, [](int index, std::vector<std::string> &contents) {
-        if (index != -1) {
-            for (int i = 0; i < contents.size(); i++) {
-                tokens += (contents[i].size() > 0);
+    for(int i=0; i<10; i++){
+        model->ResponseBatch(inputs, outputs, [](int index, std::vector<std::string> &contents) {
+            if (index != -1) {
+                for (int i = 0; i < contents.size(); i++) {
+                    tokens += (contents[i].size() > 0);
+                }
             }
-        }
-    }, generationConfig);
+        }, generationConfig);
+    }
 
     float spend = fastllm::GetSpan(st, std::chrono::system_clock::now());
 

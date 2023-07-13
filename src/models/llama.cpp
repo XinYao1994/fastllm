@@ -793,6 +793,7 @@ namespace fastllm {
                         std::vector <GenerationConfig> generationConfigs;
                         LastTokensManager tokensManager;
                         model->dictLocker.lock();
+                        // printf("%d, %d", model->bos_token_id, model->eos_token_id);
                         for (auto &it: model->responseContextDict.dicts) {
                             if (it.second->isEnding) {
                                 continue;

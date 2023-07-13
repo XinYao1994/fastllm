@@ -27,7 +27,8 @@ def response(model, prompt_input:str, stream_output:bool=False):
     input_ids.extend([gmask_token_id, bos_token_id])
     input_ids = [int(v) for v in input_ids]
     # print(input_ids)
-
+    
+    # uses ForwardBatch seqLens
     handle = model.launch_response(input_ids)
     continue_token = True
 

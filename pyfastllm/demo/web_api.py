@@ -63,7 +63,7 @@ async def api_chat_stream(request: Request):
         config.top_p = data.get("top_p")
     return StreamingResponse(chat_stream(history + prompt, config), media_type='text/event-stream')
 
-
+# use ResponseBatch -> ForwardBatch
 def batch_stream(prompts: str, config: pyfastllm.GenerationConfig):
     idx = 0
     for response in model.batch_response(prompts, None, config): 
